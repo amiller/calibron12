@@ -1,46 +1,19 @@
-#import numpy as np
-
-###############
-# Prints all possible sums of a subset
-_sum_cache = {}
-def possibleSums(coins):
-    if tuple(coins) in _sum_cache:
-        return _sum_cache[tuple(coins)]
-    total = min(width,sum(coins)) # Total size
-    possible = [[] for _ in range(total+1)]
-    possible[0] = []
-    for coin in coins:
-        for i in range(total-coin,-1,-1):
-            if possible[i] is not []:
-                possible[i+coin] = possible[i]+[coin]
-    rs = set([i for i in range(total+1) if possible[i]])
-    _sum_cache[tuple(coins)] = rs
-    return rs
-
-# Driver code 
-#arr = [5, 5, 4, 3]
-#print(possibleSums(arr))
-
-
-###########
-
-
 # Definition of Calibron12 problem
 pieces = [
           (14,4,'-'),
           (28,6,'*'),    
           (10,7,'-'),
           (28,7,'-'),
-          (17,14,'-'),
-          (32,11,'x'),
           (32,10,'*'),
+          (32,11,'x'),
+          (17,14,'-'),
           (28,14,'x'),
           (21,18,'x'),
           (21,18,'+'),
           (21,14,'-'),
           (21,14,'*'),
 ]
-
+pieces = sorted(pieces)[::-1]
 
 height = width = 56
 assert sum(x*y for x,y,_ in pieces) == height * width
@@ -118,6 +91,56 @@ def apply_piece(piece, conf, board):
             board[i][j] = c
     return board
 
+# Draw a piece onto a board (modifies board in place)
+def unapply_piece(piece, conf, board):
+    w,h,c = piece
+    x,y,o = conf
+    if o: (h,w) = (w,h)
+    if x < 0 or x+w > width: return None
+    if y < 0 or y+h > height: return None
+    for i in range(y,y+h):
+        for j in range(x,x+w):
+            assert board[i][j] != ' '
+            board[i][j] = ' '
+    return board
+
+# naive bactracking
+_iters = 0
+def _backtrack3(board,pieces):
+
+    # Find the next corner to place
+    def findNext(board):
+        for x in range(width):
+            for y in range(height):
+                if board[y][x] == ' ': return (x,y)
+    x,y = findNext(board)
+    
+    # Try all choices of next piece
+    for pi in range(len(pieces)):
+        rest = pieces[:pi] + pieces[pi+1:]
+        p = pieces[pi]
+
+        w,h,c = p
+        for o in range(2):
+            if o: (h,w) = (w,h)
+            if not apply_piece(p, (x,y,o), board):
+                continue # Couldn't fit
+            if rest == []:
+                print("\x1b[2J\x1b[H")
+                print_board(board)
+                print('Done!')
+                return board
+            #if len(rest) == 8:
+            global _iters
+            if _iters % 10000 == 0:
+                print("\x1b[2J\x1b[H")
+                print_board(board)
+            _iters += 1
+            solved = _backtrack3(board,rest)
+            if solved: return solved
+            unapply_piece(p, (x,y,o), board)
+    return None
+
 # naive bactracking
 def _backtrack(board,pieces):
     from copy import deepcopy
@@ -144,6 +167,30 @@ def _backtrack(board,pieces):
 #board = [[' '] * height for _ in range(width)]
 #_backtrack(board, pieces)
 
+###############
+# Prints all possible sums of a subset
+_sum_cache = {}
+def possibleSums(coins):
+    if tuple(coins) in _sum_cache:
+        return _sum_cache[tuple(coins)]
+    total = min(width,sum(coins)) # Total size
+    possible = [[] for _ in range(total+1)]
+    possible[0] = []
+    for coin in coins:
+        for i in range(total-coin,-1,-1):
+            if possible[i] is not []:
+                possible[i+coin] = possible[i]+[coin]
+    rs = set([i for i in range(total+1) if possible[i]])
+    _sum_cache[tuple(coins)] = rs
+    return rs
+
+# Driver code 
+#arr = [5, 5, 4, 3]
+#print(possibleSums(arr))
+
+
+###########
+
 def rect_intersect(x,y,w,h, _x,_y,_w,_h):
     if _x >= x+w or x >= _x + _w: return False
     if _y >= y+h or y >= _y + _h: return False
@@ -164,12 +211,12 @@ def test_conf(confs, p, conf):
 
 
 # Backtracking just by comparing figures
-def _backtrack2(confs, pieces):
+def _backtrack2(board, confs, pieces):
     # Try all combinations of next piece
     p,rest = pieces[0],pieces[1:]
     w,h,c = p
 
-    board = draw_board(confs)
+    #board = draw_board(confs)
 
     # Find all of the holes (rows or columns)
     holes = sorted(find_all_holes(board))
@@ -183,14 +230,14 @@ def _backtrack2(confs, pieces):
         return None
 
     # Print the progress so far
-    if len(rest) <= 10:
+    if len(rest) == 5:
         import os
         print("\x1b[2J\x1b[H")
         print_board(board)
         print('all achievable dimensions:', sorted(possibleSums(all_dimensions([p]+rest))))
         print('all holes:', holes)
 
-    isFirstPiece = len(confs) == 0
+    firstPiece = len(confs) == 0
         
     # 1. Enumerate the orientation o (0,1)
     for o in range(2):
@@ -205,8 +252,11 @@ def _backtrack2(confs, pieces):
                 # First piece is fixed orientation
                 if firstPiece and y > (56 - h+1)//2: continue
 
+                #if board[x][y] != ' ': continue
+
                 # Check if adding the piece p at x,y,o is feasible
-                if not test_conf(confs, p, (x,y,o)): continue
+                #if not test_conf(confs, p, (x,y,o)): continue
+                if not apply_piece(p, (x,y,o), board): continue
                 newconf = confs + ((x,y,o),)
 
                 # Check if done
@@ -215,14 +265,16 @@ def _backtrack2(confs, pieces):
                     return newconf
 
                 # Recurse
-                solved = _backtrack2(newconf,rest)
+                solved = _backtrack2(board, newconf,rest)
                 if solved: return solved
+                else: unapply_piece(p, (x,y,o), board)
     return None
 
 #draw_board([[10,20,0],
 #            [10,11,0]])
 
-_backtrack2((), pieces)
+#_backtrack2(draw_board(()), (), pieces)
+_backtrack3(draw_board(()), pieces)
 
 
             
