@@ -2,20 +2,23 @@
 
 ###############
 # Prints all possible sums of a subset
+_sum_cache = {}
 def possibleSums(coins):
-    total = sum(coins) # Total size
+    if tuple(coins) in _sum_cache:
+        return _sum_cache[tuple(coins)]
+    total = min(width,sum(coins)) # Total size
     possible = [[] for _ in range(total+1)]
     possible[0] = []
     for coin in coins:
         for i in range(total-coin,-1,-1):
             if possible[i] is not []:
                 possible[i+coin] = possible[i]+[coin]
-    rs = set(map(sum, possible))
-    rs = [r for r in rs if r > 0 and r <= width]
+    rs = set([i for i in range(total+1) if possible[i]])
+    _sum_cache[tuple(coins)] = rs
     return rs
 
 # Driver code 
-#arr = [5, 4, 3]
+#arr = [5, 5, 4, 3]
 #print(possibleSums(arr))
 
 
@@ -23,18 +26,19 @@ def possibleSums(coins):
 
 
 # Definition of Calibron12 problem
-pieces = [(32,11,'x'),
+pieces = [
+          (14,4,'-'),
+          (28,6,'*'),    
+          (10,7,'-'),
           (28,7,'-'),
-          (28,6,'*'),
           (17,14,'-'),
+          (32,11,'x'),
           (32,10,'*'),
           (28,14,'x'),
           (21,18,'x'),
+          (21,18,'+'),
           (21,14,'-'),
           (21,14,'*'),
-          (21,18,'+'),
-          (14,4,'-'),
-          (10,7,'-'),
 ]
 
 
@@ -63,11 +67,15 @@ def draw_board(conf):
 #            [10,11,0]])
 
 # Achievable dimensions
+_dim_cache = {}
 def all_dimensions(pieces):
-    return set([w for w,h,_ in pieces] + [h for w,h,_ in pieces])
+    pieces = tuple(pieces)
+    if pieces not in _dim_cache:
+        _dim_cache[pieces] = sorted([w for w,h,_ in pieces] + [h for w,h,_ in pieces])[::-1]
+    return _dim_cache[pieces]
 
-print('all dimensions:', sorted(all_dimensions(pieces)))
-print('all achievable dimensions:', sorted(possibleSums(all_dimensions(pieces))))
+print('all dimensions:', all_dimensions(pieces))
+print('all achievable dimensions:', possibleSums(all_dimensions(pieces)))
 
 # Find the sizes of any hole in row or column
 def find_all_holes(board):
@@ -167,7 +175,7 @@ def _backtrack2(confs, pieces):
     holes = sorted(find_all_holes(board))
 
     # Find the possible dimensions of the rest
-    dims = all_dimensions(pieces=rest)
+    dims = all_dimensions(pieces=[p]+rest)
     possible = possibleSums(dims)
 
     # Reject by sums
@@ -175,19 +183,28 @@ def _backtrack2(confs, pieces):
         return None
 
     # Print the progress so far
-    if len(rest) <= 9 or len(rest) == 2:
+    if len(rest) <= 10:
         import os
         print("\x1b[2J\x1b[H")
         print_board(board)
-        print('all achievable dimensions:', sorted(possibleSums(all_dimensions(rest))))
+        print('all achievable dimensions:', sorted(possibleSums(all_dimensions([p]+rest))))
         print('all holes:', holes)
+
+    isFirstPiece = len(confs) == 0
         
     # 1. Enumerate the orientation o (0,1)
     for o in range(2):
         if o: (h,w) = (w,h)
+        if firstPiece and o == 1: continue
         # 2. Enumerate the x,y positions
         for x in range(width-w):
+            # First piece is fixed orientation
+            if firstPiece and x > (56 - w+1)//2: continue
+
             for y in range(height-h):
+                # First piece is fixed orientation
+                if firstPiece and y > (56 - h+1)//2: continue
+
                 # Check if adding the piece p at x,y,o is feasible
                 if not test_conf(confs, p, (x,y,o)): continue
                 newconf = confs + ((x,y,o),)
