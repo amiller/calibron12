@@ -36,44 +36,7 @@ def draw_board(conf):
                     board[i][j] = c
     return board
 
-#draw_board([[10,20,0],
-#            [10,11,0]])
-
-# Achievable dimensions
-_dim_cache = {}
-def all_dimensions(pieces):
-    pieces = tuple(pieces)
-    if pieces not in _dim_cache:
-        _dim_cache[pieces] = sorted([w for w,h,_ in pieces] + [h for w,h,_ in pieces])[::-1]
-    return _dim_cache[pieces]
-
-print('all dimensions:', all_dimensions(pieces))
-print('all achievable dimensions:', possibleSums(all_dimensions(pieces)))
-
-# Find the sizes of any hole in row or column
-def find_all_holes(board):
-    def find_holes_in_row(row):
-        holes = set()
-        i = 0
-        while i < len(row):
-            # Move i to the start of a hole
-            while i < len(row) and row[i] != ' ':
-                i += 1
-            start = i
-            # Find the end of the row
-            while i < len(row) and row[i] == ' ':
-                i += 1
-            stop = i
-            if stop - start > 0:
-                holes.add(stop - start)
-        return holes
-    holes = set.union(*map(find_holes_in_row, board))
-    #print('holes1:', holes)
-    bt = [[board[i][j] for i in range(width)] for j in range(height)]
-    holes = holes.union(*map(find_holes_in_row, bt))
-    #print('holes:',holes)
-    return holes
-
+#### Good version
 ### Backtracking keeping board as state
 
 # Draw a piece onto a board (modifies board in place)
@@ -104,7 +67,7 @@ def unapply_piece(piece, conf, board):
             board[i][j] = ' '
     return board
 
-# naive bactracking
+# good bactracking
 _iters = 0
 def _backtrack3(board,pieces):
 
@@ -129,18 +92,20 @@ def _backtrack3(board,pieces):
                 print("\x1b[2J\x1b[H")
                 print_board(board)
                 print('Done!')
-                return board
+                #return board
             #if len(rest) == 8:
             global _iters
-            if _iters % 10000 == 0:
-                print("\x1b[2J\x1b[H")
-                print_board(board)
+            #if _iters % 10000 == 0:
+            #    print("\x1b[2J\x1b[H")
+            #    print_board(board)
             _iters += 1
             solved = _backtrack3(board,rest)
             if solved: return solved
             unapply_piece(p, (x,y,o), board)
     return None
 
+
+############ Version 1
 # naive bactracking
 def _backtrack(board,pieces):
     from copy import deepcopy
@@ -164,8 +129,65 @@ def _backtrack(board,pieces):
                 unapply_piece(p, (x,y,o), board)
     return None
 
+#### Version 3
+
+#draw_board([[10,20,0],
+#            [10,11,0]])
+
+# Achievable dimensions
+_dim_cache = {}
+def all_dimensions(pieces):
+    pieces = tuple(pieces)
+    if pieces not in _dim_cache:
+        _dim_cache[pieces] = sorted([w for w,h,_ in pieces] + [h for w,h,_ in pieces])[::-1]
+    return _dim_cache[pieces]
+
+
+# Find the sizes of any hole in row or column
+def find_all_holes(board):
+    def find_holes_in_row(row):
+        holes = set()
+        i = 0
+        while i < len(row):
+            # Move i to the start of a hole
+            while i < len(row) and row[i] != ' ':
+                i += 1
+            start = i
+            # Find the end of the row
+            while i < len(row) and row[i] == ' ':
+                i += 1
+            stop = i
+            if stop - start > 0:
+                holes.add(stop - start)
+        return holes
+    holes = set.union(*map(find_holes_in_row, board))
+    #print('holes1:', holes)
+    bt = [[board[i][j] for i in range(width)] for j in range(height)]
+    holes = holes.union(*map(find_holes_in_row, bt))
+    #print('holes:',holes)
+    return holes
+
 #board = [[' '] * height for _ in range(width)]
 #_backtrack(board, pieces)
+
+def rect_intersect(x,y,w,h, _x,_y,_w,_h):
+    if _x >= x+w or x >= _x + _w: return False
+    if _y >= y+h or y >= _y + _h: return False
+    return True
+
+def test_conf(confs, p, conf):
+    # Test if piece p at conf collides with confs
+    w,h,c = p
+    x,y,o = conf
+    if o: (h,w) = (w,h) # flip
+    for (_p,_conf) in zip(pieces, confs):
+        _w,_h,_ = _p
+        _x,_y,_o = _conf
+        if _o: (_h,_w) = (_w,_h)
+        if rect_intersect(x,y,w,h, _x,_y,_w,_h):
+            return False
+    return True
+
 
 ###############
 # Prints all possible sums of a subset
@@ -191,23 +213,9 @@ def possibleSums(coins):
 
 ###########
 
-def rect_intersect(x,y,w,h, _x,_y,_w,_h):
-    if _x >= x+w or x >= _x + _w: return False
-    if _y >= y+h or y >= _y + _h: return False
-    return True
 
-def test_conf(confs, p, conf):
-    # Test if piece p at conf collides with confs
-    w,h,c = p
-    x,y,o = conf
-    if o: (h,w) = (w,h) # flip
-    for (_p,_conf) in zip(pieces, confs):
-        _w,_h,_ = _p
-        _x,_y,_o = _conf
-        if _o: (_h,_w) = (_w,_h)
-        if rect_intersect(x,y,w,h, _x,_y,_w,_h):
-            return False
-    return True
+print('all dimensions:', all_dimensions(pieces))
+print('all achievable dimensions:', possibleSums(all_dimensions(pieces)))
 
 
 # Backtracking just by comparing figures
