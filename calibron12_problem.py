@@ -14,7 +14,6 @@ pieces = [
           (21,14,'-'),
           (21,14,'*'),
 ]
-pieces = sorted(pieces)[::-1]
 
 height = width = 56
 assert sum(x*y for x,y,_ in pieces) == height * width
@@ -49,13 +48,17 @@ def conf_to_board(conf):
 # Example
 #  Only place the biggest two pieces, both in horizontal position.
 #  The pieces partially overlap, resulting in 'E' error characters
-print_board(conf_to_board([[10,20,0],
-                           [12,11,0]]))
+if __name__ == '__main__':
+    print_board(conf_to_board([[10,20,0],
+                               [12,11,0]]))
 
 
 ##################################
 # Inefficient brute force solution
 ##################################
+
+# First a few useful functions for applying/unapplying a piece in place,
+# and checking whether it creates an error
 
 # Adds one new piece onto a board, **modifying the board in place**.
 # Returns "None" if adding the piece here would create an overlap with
@@ -89,32 +92,45 @@ def unapply_piece(piece, conf, board):
 
 
 ############ Version 1
-# naive bactracking
+# Now, a first attempt at a back-tracking search
+############
 _iters = 0
 def _backtrack(board,pieces):
     global _iters
-    # Try all combinations of next piece
+    # Try to place the first piece, then recursively try to fit the rest
     p,rest = pieces[0],pieces[1:]
     w,h,c = p
+    # Try all orientations
     for o in range(2):
         if o: (h,w) = (w,h)
+        # Try all x,y positions
         for x in range(width-w):
             for y in range(height-h):
+                # Try to apply the piece
                 newboard = apply_piece(p, (x,y,o), board)
                 if newboard is None:
                     continue
                 _iters += 1
+
+                # Check if we're done
                 if rest == []:
                     print('Done!')
                     return newboard
+
+                # Optionally print the current board
+                # (change the threshold to be more or less noisy)
                 if len(rest) < 5:
                     print 'Board at iteration %d' % (_iters,)
                     print_board(newboard)
+
+                # Recursively look for a solution
                 solved = _backtrack(newboard,rest)
                 if solved: return solved
+
+                # Unapply the piece before resuming with the next orientation
                 unapply_piece(p, (x,y,o), board)
     return None
 
-# Run this algorithm
-_backtrack(empty_board(), pieces)
+if __name__ == '__main__':
+    _backtrack(empty_board(), pieces)
 
